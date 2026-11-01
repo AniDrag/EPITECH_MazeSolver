@@ -1,7 +1,7 @@
 NAME = solver
 CC = gcc
 CFLAGS = -g -Wall -Wextra -Werror -std=c11
-OBJ = bin/main.o #bin/maze_parser.o
+OBJ = bin/main.o bin/maze_parser.o
 
 #Helps Build all the dependancies
 all: $(NAME)
@@ -10,11 +10,11 @@ $(NAME): $(OBJ)
 	$(CC) $(OBJ) -o $(NAME)
 
 # Compile main.c if main.o is missing or main.c is newer.
-bin/main.o: bin/main.c #bin/maze_parser.h
+bin/main.o: bin/main.c bin/maze_parser.h
 	$(CC) $(CFLAGS) -c $< -o $@
 # same as above
-#bin/maze_parser.o: bin/maze_parser.c bin/maze_parser.h
-#	$(CC) $(CFLAGS) -c $< -o $@
+bin/maze_parser.o: bin/maze_parser.c bin/maze_parser.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	$(RM) $(OBJ)

@@ -70,36 +70,46 @@ static int next_cell(enum Direction direction, int mazeWidth)
         case Down:  return  mazeWidth;
         case Left:  return -1;
         case Right: return  1;
-        default:    return  -1;  // End or Unseen ill handle it as error
+        default:    return  0;  // End or Unseen ill handle it as error
     }
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
-    const int mazeWidth = 10; // Will be inputs and generated later
-    const int mazeHeight = 10;
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <maze file>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
 
-    char maze[] =
-    "**********"
-    "XX*XXXXXX*"
-    "XXX*******"
-    "XXX*XXXXXX"
-    "XXX*******"
-    "XXXXXXXXX*"
-    "**********"
-    "*XXXXXXXXX"
-    "**********"
-    "XXXXXXXXX*";
+    FILE *file = fopen(argv[1], "rb");
+    if (file == NULL) 
+    {
+        perror(argv[1]);
+        return EXIT_FAILURE;
+    }
+
+    int mazeWidth;
+    int mazeHeight;
+    char *maze = load_maze(file, &mazeWidth, &mazeHeight);
+    fclose(file);
+
+    if (maze == NULL) 
+    {
+        return EXIT_FAILURE;
+    }
+   
 
     const int mazeStart = 0;
     const int mazeFinish = mazeWidth * mazeHeight - 1;
 
     if (is_wall(maze[mazeFinish])) {
         puts("no solution found! End is a wall");
+        free(maze);
         return 0;
     }
     if (is_wall(maze[mazeStart])) {
         puts("no solution found! Start is A wall");
+        free(maze);
         return 0;
     }
 
@@ -114,6 +124,7 @@ int main(void)
     unsigned char *dictionary = calloc(capacity, sizeof *dictionary);
     if (dictionary == NULL) {
         free(queue);
+        free(maze);
         return EXIT_FAILURE;
     }
     
@@ -124,7 +135,7 @@ int main(void)
 
     while (head < tail){
         int currentCell = queue[head++];
-        printf("Cell [%d]\n", currentCell);
+        //printf("Cell [%d]\n", currentCell);
 
         if (currentCell == mazeStart) break;
     
@@ -163,9 +174,10 @@ int main(void)
     }
 
     if(dictionary[mazeStart] == Unseen) {
-        printf("Maze Is impossible to cleare");
+        puts("Maze is impossible to clear");
         free(dictionary);
         free(queue);
+        free(maze);
         return EXIT_FAILURE;
     }
 
@@ -184,6 +196,7 @@ int main(void)
             fprintf(stderr, "Invalid direction at cell %d\n", cellIndex);
             free(dictionary);
             free(queue);
+            free(maze);
             return EXIT_FAILURE;
         }
 
@@ -197,7 +210,7 @@ int main(void)
     // Print maze   
     for(int i = 0; i < mazeWidth*mazeHeight; i++){
         if(i%mazeWidth == 0) 
-            printf("\n%c", maze[i]);
+            printf("\n Line >>%c", maze[i]);
         else 
             printf("%c", maze[i]);
 
@@ -205,5 +218,6 @@ int main(void)
 
     free(dictionary);
     free(queue);
+    free(maze);
     return 0;
 }
