@@ -1,9 +1,13 @@
 #include "maze_parser.h"
+#include "utility.h"
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
+
 /* PSUDO CODE
+
+
 if start or finish is a wall:
     return NO_PATH
 
@@ -33,46 +37,72 @@ maze[finish] = 'o'
 
 return SOLVED
 */
-static bool is_wall(char cell)
+
+void validate_maze(Maze *maze)
 {
-    return cell != '*';
-}
-// Region MACROS
-
-#define CAN_GO_UP(currentCell, mazeWidth) \
-    ((currentCell) >= (mazeWidth))
-
-#define CAN_GO_LEFT(currentCell, mazeWidth) \
-    (((currentCell) % (mazeWidth)) > 0)
-
-#define CAN_GO_RIGHT(currentCell, mazeWidth) \
-    (((currentCell) % (mazeWidth)) < (mazeWidth) - 1)
-
-#define CAN_GO_DOWN(currentCell, mazeWidth, mazeHeight) \
-    (((currentCell) / (mazeWidth)) < (mazeHeight) - 1)
-
-#define GO_DOWN(cellIndex, mazeWidth)(cellIndex += mazeWidth)
-
-#define ENQUEUE_CELL(cell, tail, direction) do { \
-    int cell_index = (cell);                     \
-    dictionary[cell_index] = (direction);        \
-    queue[(tail)++] = cell_index;                \
-} while (0)
-
-// endregion
-
-enum Direction{ Unseen, End, Up, Down, Left,Right};
-
-static int next_cell(enum Direction direction, int mazeWidth)
-{
-    switch (direction) {
-        case Up:    return -mazeWidth;
-        case Down:  return  mazeWidth;
-        case Left:  return -1;
-        case Right: return  1;
-        default:    return  0;  // End or Unseen ill handle it as error
+    if (is_wall(maze->grid[maze->start])) {
+        puts("no solution found! Start is a wall");
+        free(maze->grid);
+        exit(EXIT_FAILURE);
+    }
+    if (is_wall(maze->grid[maze->finish])) {
+        puts("no solution found! End is a wall");
+        free(maze->grid);
+        exit(EXIT_FAILURE);
     }
 }
+
+
+
+void print_maze(Maze *maze)
+{
+    for (int row = 0; row < maze->height; row++) {
+        const char *row_start = maze->grid + (size_t)row * maze->width;
+        int column = 0;
+
+        // Group adjacent cells with the same color so each run can be written at once.
+        while (column < maze->width) {
+            int color = color_for_cell(row_start[column]);
+            int run_start = column++;
+
+            while (column < maze->width && color_for_cell(row_start[column]) == color)
+                column++;
+
+            // ANSI escape sequence selects the color; fwrite outputs this run of cells.
+            fprintf(stdout, "\x1b[%dm", color);
+            fwrite(row_start + run_start, sizeof *maze->grid,
+                (size_t)(column - run_start), stdout);
+        }
+
+        // Reset the terminal color, then end this maze row.
+        fputs("\x1b[0m", stdout);
+        // Finish the printed row with a newline.
+        fputc('\n', stdout);
+    }
+}
+void modify_maze(Maze *maze, unsigned char *map)
+{
+    int cellIndex = maze->start;
+
+    while (cellIndex != maze->finish) 
+    {
+        int offset = next_cell(map[cellIndex], maze->width);
+
+        if (offset == 0) 
+        {
+            fprintf(stderr, "Invalid direction at cell %d\n", cellIndex);
+            free(map);
+            free(maze->grid);
+            exit(EXIT_FAILURE);
+        }
+
+        maze->grid[cellIndex] = 'o';
+        cellIndex += offset;
+    }
+
+    maze->grid[maze->finish] = 'o';
+}
+
 
 int main(int argc, char **argv)
 {
@@ -88,83 +118,84 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    int mazeWidth;
-    int mazeHeight;
-    char *maze = load_maze(file, &mazeWidth, &mazeHeight);
+    //int mazeWidth;
+    //int mazeHeight;
+    //char *maze = load_maze(file, &mazeWidth, &mazeHeight);
+    Maze maze = {0};
+    maze.grid = load_maze(file, &maze.width, &maze.height);
     fclose(file);
 
-    if (maze == NULL) 
+    if (maze.grid == NULL) 
     {
         return EXIT_FAILURE;
     }
    
 
-    const int mazeStart = 0;
-    const int mazeFinish = mazeWidth * mazeHeight - 1;
+    //const int mazeStart = 0;
+    //const int mazeFinish = mazeWidth * mazeHeight - 1;
+    maze.start = 0;
+    maze.finish = maze.width * maze.height - 1;
 
-    if (is_wall(maze[mazeFinish])) {
-        puts("no solution found! End is a wall");
-        free(maze);
-        return 0;
+    validate_maze(&maze);
+
+    size_t capacity = (size_t)maze.width * maze.height;
+
+    //int *queue = malloc(capacity * sizeof *queue);
+    Queue queue = {0};    
+    queue.q = malloc(capacity * sizeof *queue.q);
+    if (queue.q == NULL) {
+        free(maze.grid);
+        return EXIT_FAILURE;
     }
-    if (is_wall(maze[mazeStart])) {
-        puts("no solution found! Start is A wall");
-        free(maze);
-        return 0;
-    }
 
-    size_t capacity = (size_t)mazeWidth * mazeHeight;
-    int *queue = malloc(capacity * sizeof *queue);
-    if (queue == NULL) return EXIT_FAILURE;
-
-    int head = 0;  // Where to read the next cell.
-    int tail = 0;  // Where to write the next cell.
+    queue.head = 0;  
+    queue.tail = 0; 
 
     // calloc zeros out my dic ;)
-    unsigned char *dictionary = calloc(capacity, sizeof *dictionary);
-    if (dictionary == NULL) {
-        free(queue);
-        free(maze);
+    unsigned char *map = calloc(capacity, sizeof *map);
+    if (map == NULL) {
+        free(queue.q);
+        free(maze.grid);
         return EXIT_FAILURE;
     }
     
-    dictionary[mazeFinish] = End;
+    map[maze.finish] = End;
    //queue[tail++] = finish; slightly less clear what happens so im opting for second option.
-   queue[tail] = mazeFinish;
-   tail++;
+   queue.q[queue.tail] = maze.finish;
+   queue.tail++;
 
-    while (head < tail){
-        int currentCell = queue[head++];
+    while (queue.head < queue.tail){
+        int currentCell = queue.q[queue.head++];
         //printf("Cell [%d]\n", currentCell);
 
-        if (currentCell == mazeStart) break;
+        if (currentCell == maze.start) break;
     
 
-        if(CAN_GO_UP(currentCell,mazeWidth)){
-            int aboveCell = currentCell - mazeWidth;
+        if(CAN_GO_UP(currentCell,maze.width)){
+            int aboveCell = currentCell - maze.width;
 
-            if(!is_wall(maze[aboveCell]) && dictionary[aboveCell] == Unseen){
-                ENQUEUE_CELL(aboveCell,tail,Down);
+            if(!is_wall(maze.grid[aboveCell]) && map[aboveCell] == Unseen){
+                ENQUEUE_CELL(aboveCell,queue.tail,Down);
             }
         }
-        if(CAN_GO_LEFT(currentCell,mazeWidth)){
+        if(CAN_GO_LEFT(currentCell,maze.width)){
             int leftCell = currentCell - 1;
 
-            if(!is_wall(maze[leftCell]) && dictionary[leftCell] == Unseen){
-                ENQUEUE_CELL(leftCell,tail,Right);
+            if(!is_wall(maze.grid[leftCell]) && map[leftCell] == Unseen){
+                ENQUEUE_CELL(leftCell,queue.tail,Right);
             }
         }
-        if(CAN_GO_DOWN(currentCell,mazeWidth,mazeHeight)){
-            int downCell = currentCell + mazeWidth;
+        if(CAN_GO_DOWN(currentCell,maze.width,maze.height)){
+            int downCell = currentCell + maze.width;
 
-            if(!is_wall(maze[downCell]) && dictionary[downCell] == Unseen)
-                ENQUEUE_CELL(downCell,tail,Up);
+            if(!is_wall(maze.grid[downCell]) && map[downCell] == Unseen)
+                ENQUEUE_CELL(downCell,queue.tail,Up);
         }
-        if(CAN_GO_RIGHT(currentCell, mazeWidth)){
+        if(CAN_GO_RIGHT(currentCell, maze.width)){
             int rightCell = currentCell + 1;
 
-            if(!is_wall(maze[rightCell]) && dictionary[rightCell] == Unseen)
-            ENQUEUE_CELL(rightCell,tail,Left);
+            if(!is_wall(maze.grid[rightCell]) && map[rightCell] == Unseen)
+            ENQUEUE_CELL(rightCell,queue.tail,Left);
         }
         // Ok We try firs Up left Right down
         // Macro for can go up should be if curr % height-1 != 0
@@ -173,51 +204,23 @@ int main(int argc, char **argv)
 
     }
 
-    if(dictionary[mazeStart] == Unseen) {
+    if(!START_CELL_REACHED(map, maze->start)) {
         puts("Maze is impossible to clear");
-        free(dictionary);
-        free(queue);
-        free(maze);
+        free(map);
+        free(queue.q);
+        free(maze.grid);
         return EXIT_FAILURE;
     }
 
 
-
     // Maze modifications
-
-   int cellIndex = mazeStart;
-
-    while (cellIndex != mazeFinish) 
-    {
-        int offset = next_cell(dictionary[cellIndex], mazeWidth);
-
-        if (offset == 0) 
-        {
-            fprintf(stderr, "Invalid direction at cell %d\n", cellIndex);
-            free(dictionary);
-            free(queue);
-            free(maze);
-            return EXIT_FAILURE;
-        }
-
-        maze[cellIndex] = 'o';
-        cellIndex += offset;
-    }
-
-    maze[mazeFinish] = 'o';
-
+    modify_maze(&maze, map);
 
     // Print maze   
-    for(int i = 0; i < mazeWidth*mazeHeight; i++){
-        if(i%mazeWidth == 0) 
-            printf("\n Line >>%c", maze[i]);
-        else 
-            printf("%c", maze[i]);
+    print_maze(&maze);
 
-    }
-
-    free(dictionary);
-    free(queue);
-    free(maze);
+    free(map);
+    free(queue.q);
+    free(maze.grid);
     return 0;
 }
