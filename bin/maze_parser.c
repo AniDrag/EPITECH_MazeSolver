@@ -4,28 +4,24 @@
 
 #define MAX_MAZE_SIZE 10000  
 
-/*
-    Load a rectangular maze from a file into one flat, writable array.
- 
-    On success, returns the maze and writes its dimensions through width
-    and height.
- 
-    On failure, prints the reason to stderr and returns NULL.
-    The caller is responsible for closing the file in either case.
- */
+// First measure the rows, then allocate exactly enough space and read the cells.
 char *load_maze(FILE *mazeFile, int *width, int *height)
 {
     
     // 10,000 cells + '\r' + '\n' + the '\0' that fgets adds.
     char row[MAX_MAZE_SIZE + 3];
 
+    // These are pointers to the caller's fields. *width = 0 writes into the caller's width.
     *width = 0;
     *height = 0;
 
     // PASS 1: Find the dimensions before allocating the maze.
     // Each successful fgets reads the next row into the same buffer.
+    // sizeof row is the whole buffer here. fgets leaves room for the terminating '\0'.
     while (fgets(row, sizeof row, mazeFile) != NULL) {
 
+        // strcspn counts bytes up to the first '\r', '\n', or end of the string.
+        // That gives the cell count even if the last row has no newline.
         size_t length = strcspn(row, "\r\n");
 
         int rowNumber = *height + 1;
@@ -50,7 +46,7 @@ char *load_maze(FILE *mazeFile, int *width, int *height)
             return NULL;
         }
 
-        // Parentheses matter: increment the row count stored in main.
+        // (*height)++ increments the row count. *height++ would advance the pointer instead.
         (*height)++;
     }
 
@@ -67,6 +63,7 @@ char *load_maze(FILE *mazeFile, int *width, int *height)
 
     // The first pass left us at the end. Move back to byte 0 so the
     // second pass starts with the first row again.
+    // SEEK_SET means count from the beginning. A nonzero return means the seek failed.
     if (fseek(mazeFile, 0, SEEK_SET) != 0) {
         fputs("Could not return to the start of the maze file to load its cells.\n", stderr);
         return NULL;
@@ -74,6 +71,7 @@ char *load_maze(FILE *mazeFile, int *width, int *height)
 
     // Allocate one byte per cell. This is a grid accessed by index,
     // so we don't need a newline between rows or a final '\0'.
+    // Read both numbers through their pointers. Casting the width to size_t makes the product a byte count.
     char *maze = malloc((size_t)*width * *height);
     if (maze == NULL) {
         fprintf(stderr, "Not enough memory to load a %d by %d maze.\n", *width, *height);
@@ -104,6 +102,7 @@ char *load_maze(FILE *mazeFile, int *width, int *height)
         // memcpy(destination, source, number_of_bytes)
         // Row r starts at index r * width. Copy exactly width bytes
         // from row, leaving its line ending behind.
+        // Adding r * width to the pointer skips r whole rows. memcpy copies bytes without adding '\0'.
         memcpy(maze + (size_t)r * *width, row, (size_t)*width);
     }
 
