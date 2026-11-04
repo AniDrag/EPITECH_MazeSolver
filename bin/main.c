@@ -150,9 +150,8 @@
         // ./solver maze.txt gives two arguments: argv[0] is the program and argv[1] is the file.
         // != means "is different from", so this catches both missing and extra arguments.
         if (argc != 2) {
-            // stderr is the error stream. %s prints the program name even if I rename the executable.
             fprintf(stderr, "Usage: %s <maze file>\n", argv[0]);
-            // EXIT_FAILURE comes from stdlib.h. Returning it tells the shell the command failed.
+            // Ttells the shell the command failed.
             return EXIT_FAILURE;
         }
 
@@ -165,7 +164,6 @@
         }
 
         Maze maze = {0};
-        // & gives the parser the addresses of these fields so it can write the dimensions back.
         maze.grid = load_maze(file, &maze.width, &maze.height);
         fclose(file);
 
@@ -183,11 +181,10 @@
 
         Queue queue = {0};
 
-        // calloc zeros out my direction map ;) One entry per cell, each sizeof *map bytes.
+        // calloc zeros out my map ;) One entry per cell, each sizeof *map bytes.
         // Unseen is 0, so every cell starts unseen without a separate loop.
         unsigned char *map = calloc(capacity, sizeof *map);
-        // || stops if the map allocation failed, so enqueue_cell never gets a null map.
-        // Otherwise, seed the queue with the finish. ! catches false if its first allocation fails.
+        .
         if (map == NULL || !enqueue_cell(&queue, map, maze.finish, End))
             goto out_of_memory;
 
@@ -250,7 +247,6 @@
         return 0;
 
         // A name followed by a colon is a label. goto out_of_memory jumps here in this function.
-        // All allocation failures share this cleanup. free(NULL) is safe if an allocation failed.
         out_of_memory:
             fputs("Not enough memory to search the maze.\n", stderr);
             free(map);

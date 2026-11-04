@@ -1,4 +1,3 @@
-// This header guard keeps the declarations from being read twice in one source file.
 #ifndef UTILITY_H
 #define UTILITY_H
 
@@ -6,41 +5,30 @@
 #include <stdlib.h>
 
 /// <summary>Check whether a cell blocks movement.</summary>
-/// <param name="cell">Character read from the maze.</param>
-/// <returns>True for anything other than the open-space character *.</returns>
 static bool is_wall(char cell)
 {
     return cell != '*';
 }
+
 // Region MACROS
 
-// The backslash continues a macro onto the next line. The parentheses keep its arguments grouped.
-// In the flat grid, index % width gives the column and integer index / width gives the row.
-#define CAN_GO_UP(currentCell, mazeWidth) \
-    ((currentCell) >= (mazeWidth))
+#define CAN_GO_UP(currentCell, mazeWidth) ((currentCell) >= (mazeWidth))
 
-#define CAN_GO_LEFT(currentCell, mazeWidth) \
-    (((currentCell) % (mazeWidth)) > 0)
+#define CAN_GO_LEFT(currentCell, mazeWidth) (((currentCell) % (mazeWidth)) > 0)
 
-#define CAN_GO_RIGHT(currentCell, mazeWidth) \
-    (((currentCell) % (mazeWidth)) < (mazeWidth) - 1)
+#define CAN_GO_RIGHT(currentCell, mazeWidth) (((currentCell) % (mazeWidth)) < (mazeWidth) - 1)
 
-#define CAN_GO_DOWN(currentCell, mazeWidth, mazeHeight) \
-    (((currentCell) / (mazeWidth)) < (mazeHeight) - 1)
+#define CAN_GO_DOWN(currentCell, mazeWidth, mazeHeight) (((currentCell) / (mazeWidth)) < (mazeHeight) - 1)
 
-#define GO_DOWN(cellIndex, mazeWidth)(cellIndex += mazeWidth)
-
-
+#define GO_DOWN(cellIndex, mazeWidth) (cellIndex += mazeWidth)
 
 #define START_CELL_REACHED(map, mazeStart) ((map)[(mazeStart)] != Unseen)
 // endregion
 
-// C starts these enum values at 0, which makes a zero-filled map start at Unseen.
+//is idx 0, 1,2...
 enum Direction{ Unseen, End, Up, Down, Left,Right};
 
 /// <summary>Turn a saved direction into a step in the flat grid.</summary>
-/// <param name="direction">Direction stored during the search.</param>
-/// <param name="mazeWidth">Cells per row. Moving up or down skips one full row.</param>
 /// <returns>Signed offset to add to the cell index, or zero for a non-movement value.</returns>
 static int next_cell(enum Direction direction, int mazeWidth)
 {
@@ -49,11 +37,10 @@ static int next_cell(enum Direction direction, int mazeWidth)
         case Down:  return  mazeWidth;
         case Left:  return -1;
         case Right: return  1;
-        default:    return  0;  // End or Unseen ill handle it as error
+        default:    return  0; // Error
     }
 }
 /// <summary>Choose the ANSI foreground color for a cell.</summary>
-/// <param name="cell">Grid character being printed.</param>
 /// <returns>Color number to insert into the terminal escape sequence.</returns>
 static int color_for_cell(char cell)
 {
@@ -65,13 +52,7 @@ static int color_for_cell(char cell)
     }
 }
 
-/// <summary>A circular queue of cell indices. head is the next slot to read, count is the number waiting, and capacity is the number of allocated slots.</summary>
-typedef struct {
-    int *q;
-    size_t head;
-    size_t count;
-    size_t capacity;
-} Queue;
+
 
 /// <summary>A flat grid with its dimensions and the indices of its two endpoints.</summary>
 typedef struct {
@@ -82,17 +63,27 @@ typedef struct {
     int finish;
 } Maze;
 
+// QUEUE ------------------------------------------------------------
+
+/// <summary>A circular queue of cell indices. head is the next slot to read, count is the number waiting, and capacity is the number of allocated slots.</summary>
+typedef struct {
+    int *q;
+    size_t head;
+    size_t count;
+    size_t capacity;
+} Queue;
+
 /// <summary>Make room for more cells while keeping the oldest cell first.</summary>
 /// <param name="q">Queue to resize.</param>
 /// <returns>True on success. On allocation failure the old queue is still usable.</returns>
 static inline bool grow_queue(Queue *q)
 {
-    // q->capacity reads a field through a pointer. The ?: picks double the old size, or 16 if empty.
-    size_t capacity = q->capacity ? q->capacity * 2 : 16;
+    size_t capacity = q->capacity ? q->capacity * 2 : 16;//Fale safe.
     int *cells = malloc(capacity * sizeof *cells);
 
     if (cells == NULL)
         return false;
+
     // Copy in FIFO order, including elements that wrapped to the front.
     // % wraps around. With 16 slots, index 16 becomes slot 0 again.
     for (size_t i = 0; i < q->count; i++)
@@ -114,6 +105,7 @@ static inline bool enqueue_cell(Queue *q, unsigned char *map, int cell, enum Dir
 {
     if (q->count == q->capacity && !grow_queue(q))
         return false;
+        
     q->q[(q->head + q->count) % q->capacity] = cell;
     q->count++;
     map[cell] = (unsigned char)dir;
