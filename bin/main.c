@@ -174,13 +174,12 @@
         // calloc zeros out my map ;) One entry per cell, each sizeof *map bytes.
         // Unseen is 0, so every cell starts unseen without a separate loop.
         unsigned char *map = calloc(capacity, sizeof *map);
-        .
         if (map == NULL || !enqueue_cell(&queue, map, maze.finish, End))
             goto out_of_memory;
 
         while (queue.count > 0){
-            int valeCheck = dequeue_cell(&queue);
-            if(valeCheck == -1){
+            int currentCell = dequeue_cell(&queue);
+            if(currentCell == -1){
                 fputs("Error: Queue is empty or invalid.\n", stderr);
                 free(map);
                 free(queue.q);
@@ -188,7 +187,7 @@
                 return EXIT_FAILURE;
             }
             
-            int currentCell = dequeue_cell(&queue);
+
 
             if (currentCell == maze.start) break;
 
