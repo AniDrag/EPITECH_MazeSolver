@@ -83,7 +83,7 @@
                 // One cell is one byte. (size_t) converts the width to the count type fwrite expects.
                 // This writes exactly one row, so the grid doesn't need a string terminator.
                 fwrite(row_start, 1, (size_t)maze->width, stdout);
-                // fputc writes one character. '\n' starts the next row.
+
                 fputc('\n', stdout);
                 continue;
             }
@@ -97,12 +97,8 @@
                 while (column < maze->width && color_for_cell(row_start[column]) == color)
                     column++;
 
-                // fprintf formats text for a stream. %d inserts the color number.
-                // \x1b is the ESC byte in hex. With color 32 this sends ESC [ 3 2 m
-                // (no spaces), which tells an ANSI terminal to switch to green.
                 fprintf(stdout, "\x1b[%dm", color);
-                // Start at the first cell of this color. sizeof *maze->grid is the size of one cell.
-                // column is just past the run, so column - run_start is how many cells to write.
+
                 fwrite(row_start + run_start, sizeof *maze->grid,
                     (size_t)(column - run_start), stdout);
             }
@@ -114,9 +110,6 @@
         }
     }
     
-    /// <summary>Follow the saved directions from start to finish and mark that path with o.</summary>
-    /// <param name="maze">Grid whose path cells will be changed.</param>
-    /// <param name="map">One direction per cell, pointing toward the finish.</param>
     void modify_maze(Maze *maze, unsigned char *map)
     {
         int cellIndex = maze->start;
@@ -141,10 +134,7 @@
     }
 
 
-    /// <summary>Load the maze, search from the finish, then print the path from the start.</summary>
-    /// <param name="argc">Number of command-line arguments, including the program name.</param>
-    /// <param name="argv">Array of argument strings. argv[1] is the maze filename.</param>
-    /// <returns>Zero on success or EXIT_FAILURE on error.</returns>
+    
     int main(int argc, char **argv)
     {
         // ./solver maze.txt gives two arguments: argv[0] is the program and argv[1] is the file.
@@ -189,6 +179,15 @@
             goto out_of_memory;
 
         while (queue.count > 0){
+            int valeCheck = dequeue_cell(&queue);
+            if(valeCheck == -1){
+                fputs("Error: Queue is empty or invalid.\n", stderr);
+                free(map);
+                free(queue.q);
+                free(maze.grid);
+                return EXIT_FAILURE;
+            }
+            
             int currentCell = dequeue_cell(&queue);
 
             if (currentCell == maze.start) break;
@@ -223,7 +222,6 @@
                     if (!enqueue_cell(&queue, map, rightCell, Left))
                         goto out_of_memory;
             }
-            // Each saved direction points back to currentCell, one step closer to the finish.
 
         }
 

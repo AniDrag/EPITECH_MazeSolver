@@ -20,16 +20,12 @@ static bool is_wall(char cell)
 
 #define CAN_GO_DOWN(currentCell, mazeWidth, mazeHeight) (((currentCell) / (mazeWidth)) < (mazeHeight) - 1)
 
-#define GO_DOWN(cellIndex, mazeWidth) (cellIndex += mazeWidth)
-
 #define START_CELL_REACHED(map, mazeStart) ((map)[(mazeStart)] != Unseen)
 // endregion
 
 //is idx 0, 1,2...
 enum Direction{ Unseen, End, Up, Down, Left,Right};
 
-/// <summary>Turn a saved direction into a step in the flat grid.</summary>
-/// <returns>Signed offset to add to the cell index, or zero for a non-movement value.</returns>
 static int next_cell(enum Direction direction, int mazeWidth)
 {
     switch (direction) {
@@ -78,7 +74,7 @@ typedef struct {
 /// <returns>True on success. On allocation failure the old queue is still usable.</returns>
 static inline bool grow_queue(Queue *q)
 {
-    size_t capacity = q->capacity ? q->capacity * 2 : 16;//Fale safe.
+    size_t capacity = q->capacity ? q->capacity * 2 : 16;//Fail safe.
     int *cells = malloc(capacity * sizeof *cells);
 
     if (cells == NULL)
@@ -117,6 +113,9 @@ static inline bool enqueue_cell(Queue *q, unsigned char *map, int cell, enum Dir
 /// <returns>The removed cell index.</returns>
 static inline int dequeue_cell(Queue *q)
 {
+    if (q == NULL || q->count == 0 || q->q == NULL)
+    return -1;
+
     int cell = q->q[q->head];
 
     // Move the read position. The old slot can be reused without shifting the other cells.
